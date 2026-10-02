@@ -15,10 +15,90 @@
       --bg: #f5f7fb;
       --card-bg: #ffffff;
       --border: #cfd8dc;
+      --text-muted: #546e7a;
     }
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
     body { background-color: var(--bg); margin: 0; padding: 12px; color: #263238; direction: rtl; }
     .container { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+    /* نافذة القفل والاشتراك الإجباري */
+    #sub-lock-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(255, 255, 255, 0.98);
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .lock-box {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 30px 20px;
+      box-shadow: 0 10px 25px rgba(25, 118, 210, 0.15);
+      border: 2px solid #e3f2fd;
+      max-width: 380px;
+      width: 100%;
+    }
+
+    .lock-icon {
+      font-size: 50px;
+      margin-bottom: 12px;
+    }
+
+    .lock-title {
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: #0d47a1;
+      margin-bottom: 10px;
+    }
+
+    .lock-desc {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 22px;
+    }
+
+    .btn-channel {
+      display: block;
+      width: 100%;
+      background: var(--primary);
+      color: #ffffff;
+      text-decoration: none;
+      padding: 14px;
+      font-weight: 800;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 10px rgba(25, 118, 210, 0.3);
+    }
+
+    .btn-check-sub {
+      width: 100%;
+      background: #e8f5e9;
+      color: var(--success);
+      border: 2px solid var(--success);
+      padding: 13px;
+      font-weight: 800;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      cursor: pointer;
+    }
+
+    .sub-status-msg {
+      margin-top: 15px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      min-height: 24px;
+    }
 
     .header {
       background: #fff;
@@ -296,6 +376,20 @@
   </style>
 </head>
 <body>
+
+<!-- نافذة قفل الاشتراك الإجباري -->
+<div id="sub-lock-screen">
+  <div class="lock-box">
+    <div class="lock-icon">🔒</div>
+    <div class="lock-title">اشْتِرَاكٌ إِجْبَارِيٌّ</div>
+    <div class="lock-desc">
+      لِفَتْحِ الدَّرْسِ وَمُتَابَعَةِ الْأَنْشِطَةِ التَّفَاعُلِيَّةِ، يُرْجَى الِانْضِمَامُ إِلَى قَنَاتِنَا أَوَّلًا ثُمَّ الضَّغْطُ عَلَى تَأْكِيدِ الِاشْتِرَاكِ.
+    </div>
+    <a href="https://t.me/c/4461185731" target="_blank" class="btn-channel" id="channel-link">📢 الِانْضِمَامُ إِلَى الْقَنَاةِ</a>
+    <button class="btn-check-sub" onclick="verifySubscription()">✅ تَأْكِيدُ الِاشْتِرَاكِ</button>
+    <div id="sub-status-msg" class="sub-status-msg"></div>
+  </div>
+</div>
 
 <div class="container">
 
@@ -576,10 +670,65 @@
 </div>
 
 <script>
-  if (window.Telegram && window.Telegram.WebApp) {
-    window.Telegram.WebApp.ready();
-    window.Telegram.WebApp.expand();
+  // بيانات البوت والقناة للتحقق الإجباري
+  const BOT_TOKEN = "8663046181:AAHrz08Ar6XkdWg2AurJfN7FqZiSdVr8BVQ";
+  const CHANNEL_ID = "-1004461185731";
+
+  // تهيئة Telegram WebApp
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
   }
+
+  // التحقق من الاشتراك الإجباري
+  async function verifySubscription() {
+    const statusMsg = document.getElementById('sub-status-msg');
+    statusMsg.style.color = "#1976d2";
+    statusMsg.textContent = "جَارٍ التَّحَقُّقُ مِنَ الِاشْتِرَاكِ...";
+
+    let userId = null;
+    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+      userId = tg.initDataUnsafe.user.id;
+    }
+
+    if (!userId) {
+      statusMsg.style.color = "#e65100";
+      statusMsg.textContent = "يُرْجَى فَتْحُ التَّطْبِيقِ دَاخِلَ تِلْيِجْرَام لِلتَّحَقُّقِ.";
+      return;
+    }
+
+    try {
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${CHANNEL_ID}&user_id=${userId}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.ok && data.result) {
+        const status = data.result.status;
+        if (['creator', 'administrator', 'member'].includes(status)) {
+          statusMsg.style.color = "#2e7d32";
+          statusMsg.textContent = "تَمَّ التَّأَكُّدُ بِنَجَاحٍ! جَارٍ فَتْحُ الدَّرْسِ...";
+          setTimeout(() => {
+            document.getElementById('sub-lock-screen').style.display = 'none';
+          }, 600);
+        } else {
+          statusMsg.style.color = "#d32f2f";
+          statusMsg.textContent = "لَمْ تَنْتَسِبْ إِلَى الْقَنَاةِ بَعْدُ، يُرْجَى الِانْضِمَامُ أَوَّلًا.";
+        }
+      } else {
+        statusMsg.style.color = "#d32f2f";
+        statusMsg.textContent = "تَعَذَّرَ التَّحَقُّقُ، تَأَكَّدْ أَنَّ الْبُوتَ مُشْرِفٌ فِي الْقَنَاةِ.";
+      }
+    } catch (error) {
+      statusMsg.style.color = "#d32f2f";
+      statusMsg.textContent = "حَدَثَ خَطَأٌ فِي الِاتِّصَالِ، حَاوِلْ مَرَّةً أُخْرَى.";
+    }
+  }
+
+  // فحص تلقائي للاشتراك عند بدء التشغيل
+  window.addEventListener('DOMContentLoaded', () => {
+    verifySubscription();
+  });
 
   /* ------------------- تهيئة القريصات (40 قريصة دون إظهار العداد) ------------------- */
   const tokensBox = document.getElementById('tokens-box');
